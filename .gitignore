@@ -1,0 +1,26 @@
+# Cache Similarweb
+similarweb_cache.json
+similarweb_history.json
+
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+
+# Streamlit
+.streamlit/
+
+# Logs
+*.log
+streamlit.log
+
+# Fichiers de données temporaires
+*.tmp
+*.temp
