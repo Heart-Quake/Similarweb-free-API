@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import os
+import subprocess
 from pathlib import Path
 
 import streamlit as st
@@ -9,7 +11,29 @@ LOGO_PATH = Path(__file__).with_name("logo-sidebar-cream.png")
 LOGO_DISPLAY_WIDTH = 220
 
 
+def _get_build_commit() -> str:
+    for env_name in ("STREAMLIT_GIT_COMMIT", "GITHUB_SHA", "VERCEL_GIT_COMMIT_SHA"):
+        value = os.getenv(env_name)
+        if value:
+            return value[:12]
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
 def apply_automation_seo_theme() -> None:
+    build_id = f"{Path(__file__).parent.name}:{_get_build_commit()}"
+    st.markdown(
+        f'<div data-app-build="{build_id}" style="display:none"></div>',
+        unsafe_allow_html=True,
+    )
+
     if LOGO_PATH.exists():
         logo_b64 = base64.b64encode(LOGO_PATH.read_bytes()).decode("ascii")
         st.sidebar.markdown(
