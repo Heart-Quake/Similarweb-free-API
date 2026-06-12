@@ -1,3 +1,4 @@
+import importlib
 import streamlit as st
 import similar
 import json
@@ -6,7 +7,10 @@ from datetime import datetime, timedelta
 import io
 import time
 
-from automation_seo_theme import apply_automation_seo_theme
+import automation_seo_theme
+
+automation_seo_theme = importlib.reload(automation_seo_theme)
+apply_automation_seo_theme = automation_seo_theme.apply_automation_seo_theme
 
 # Configuration de la page
 st.set_page_config(
