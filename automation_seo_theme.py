@@ -4,12 +4,12 @@ from pathlib import Path
 
 import streamlit as st
 
-LOGO_PATH = Path(__file__).with_name("logo-full-cream.png")
+LOGO_PATH = Path(__file__).with_name("logo-sidebar-cream.png")
 
 
 def apply_automation_seo_theme() -> None:
     if LOGO_PATH.exists():
-        st.sidebar.image(str(LOGO_PATH), width=180)
+        st.sidebar.image(str(LOGO_PATH), width=220)
 
     st.markdown(
         """
