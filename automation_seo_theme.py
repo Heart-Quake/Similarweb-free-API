@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
+
+LOGO_PATH = Path(__file__).with_name("logo-full-cream.png")
 
 
 def apply_automation_seo_theme() -> None:
+    if LOGO_PATH.exists():
+        st.sidebar.image(str(LOGO_PATH), width=180)
+
     st.markdown(
         """
         <style>
