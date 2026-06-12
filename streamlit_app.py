@@ -6,12 +6,15 @@ from datetime import datetime, timedelta
 import io
 import time
 
+from automation_seo_theme import apply_automation_seo_theme
+
 # Configuration de la page
 st.set_page_config(
     page_title="Similarweb Free API",
     page_icon="📊",
     layout="wide"
 )
+apply_automation_seo_theme()
 
 # Titre de l'application
 st.title("📊 Similarweb Free API")
