@@ -16,31 +16,28 @@ st.set_page_config(
 )
 apply_automation_seo_theme()
 
-# Titre de l'application
-st.title("📊 Similarweb Free API")
-st.markdown("Obtenez des données gratuites sur le trafic, le classement et les statistiques d'un site web")
+st.markdown(
+    """
+    <section class="tool-hero">
+        <div class="tool-kicker">Traffic intelligence</div>
+        <h1 class="tool-title">Similarweb Free API Cockpit</h1>
+        <p class="tool-lead">
+            Analyse un domaine ou une liste de domaines avec les données publiques Similarweb :
+            trafic estimé, engagement, sources, géographie et historique.
+        </p>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Sidebar avec informations
 with st.sidebar:
-    st.header("ℹ️ Informations")
-    st.markdown("""
-    Cette application utilise l'API gratuite de Similarweb pour obtenir des données sur un domaine.
-    
-    **Données disponibles :**
-    - Trafic
-    - Classement global et par pays
-    - Taux de rebond
-    - Géolocalisation
-    - Sources de trafic
-    - Catégorie
-    """)
-st.markdown("---")
-st.markdown("**⚠️ Note :** Limitez vos requêtes pour éviter d'atteindre les limites de l'API.")
-st.markdown("**💡 Optimisations :**")
-st.markdown("- Rotation automatique des User-Agents")
-st.markdown("- Cache des résultats (24h)")
-st.markdown("- Délais intelligents entre requêtes")
-st.markdown("- Retry automatique en cas d'erreur")
+    with st.expander("Informations", expanded=False):
+        st.markdown("""
+        **Données disponibles :** trafic, classement, engagement, géographie, sources et catégorie.
+
+        **Robustesse :** rotation User-Agent, cache 24h, délais entre requêtes et retry automatique.
+        """)
 
 # ========== DÉFINITIONS DES FONCTIONS ==========
 
