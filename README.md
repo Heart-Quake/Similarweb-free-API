@@ -1,5 +1,24 @@
 # Similarweb Free API
 
+## Source live Automation SEO
+
+| Element | Valeur |
+|---|---|
+| Live URL | https://similarweb-api.streamlit.app/ |
+| Repository principal | https://github.com/Heart-Quake/Similarweb-free-API |
+| Branche locale actuelle | `2026-01-23-sa97` |
+| Entrypoint Streamlit | `streamlit_app.py` |
+| Commande locale | `streamlit run streamlit_app.py` |
+| Compilation | `python3 -m py_compile streamlit_app.py similar.py core_async.py cache.py rate_state.py automation_seo_theme.py` |
+| Tests | `python3 -m pytest` |
+| Secrets | Aucun secret requis par defaut. Proxies optionnels via UI. |
+
+Documentation de reprise :
+
+- [Contrats de donnees](docs/DATA_CONTRACTS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Runbook Streamlit](docs/RUNBOOK.md)
+
 The Similarweb Chrome extension (or Firefox add-on) provides free access for some basic data (traffic, global and country rank, bounce rate, geo, traffic sources, screenshot, category) using an undocumented API endpoint. With [extension source viewer](https://addons.mozilla.org/hu/firefox/addon/crxviewer/), you can find the URL, which returns free data about a given domain without using any API keys. Example:
 
     https://data.similarweb.com/api/v1/data?domain=github.com
