@@ -1,20 +1,21 @@
+#!/usr/bin/env python3
+"""Sonde manuelle optionnelle, desactivee par defaut pour proteger Similarweb."""
+
+import os
 import time
-import similar
-
-'''
-ONLY FOR TESTING
-Always watch the response, and exit if Similarweb limit reached! Sometimes Similarweb's response can be slow.
-
-If you want to acces to a parent folder, change:
 
 import similar
 
-To:
 
-import importlib
-similar = importlib.import_module("Similarweb-free-API.similar")
-'''
+def main() -> None:
+    if os.environ.get("SIMILARWEB_ALLOW_LIVE_TEST") != "1":
+        print("Sonde live desactivee. Exportez SIMILARWEB_ALLOW_LIVE_TEST=1 pour l'executer volontairement.")
+        return
 
-while 1:
-    print(similar.similarGet('http://google.com'))
-    time.sleep(3)
+    while True:
+        print(similar.similarGet("http://google.com", retry_count=1))
+        time.sleep(60)
+
+
+if __name__ == "__main__":
+    main()

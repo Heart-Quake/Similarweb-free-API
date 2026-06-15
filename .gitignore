@@ -1,6 +1,10 @@
 # Cache Similarweb
 similarweb_cache.json
 similarweb_history.json
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Fichiers Python
 __pycache__/
@@ -16,6 +20,8 @@ ENV/
 
 # Streamlit
 .streamlit/
+.streamlit_*.pid
+.runtime/
 
 # Logs
 *.log
@@ -24,3 +30,12 @@ streamlit.log
 # Fichiers de données temporaires
 *.tmp
 *.temp
+
+# Données clients (ne jamais committer)
+*.csv
+*.xlsx
+*.xls
+
+# Système / outils
+.DS_Store
+.claude/
