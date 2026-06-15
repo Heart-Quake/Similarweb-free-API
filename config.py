@@ -7,7 +7,7 @@ import random
 
 CACHE_DURATION_HOURS = 24
 HISTORY_LIMIT_PER_DOMAIN = 1000
-APP_VERSION = "2026-05-19-patient-resume-v1"
+APP_VERSION = "2026-06-15-patient-sequential-batch-v2"
 HEALTHCHECK_DOMAIN = "github.com"
 MAX_CONSECUTIVE_RATE_LIMITS = 1
 DEFAULT_TIMEOUT_SECONDS = 30
@@ -15,10 +15,15 @@ DEFAULT_RETRY_COUNT = 1
 DEFAULT_LONG_COOLDOWN_SECONDS = 3600
 
 NETWORK_PRESETS = {
+    "Collecte patiente fiable": {
+        "delay": 60.0,
+        "max_concurrency": 1,
+        "description": "Mode par defaut: un domaine a la fois, sans sonde bloquante, avec reprise par cache.",
+    },
     "Collecte longue sécurisée": {
         "delay": 45.0,
         "max_concurrency": 1,
-        "description": "Mode par defaut: un domaine a la fois, une tentative, reprise propre apres cooldown.",
+        "description": "Mode sequentiel prudent pour les lots moyens quand Similarweb repond deja correctement.",
     },
     "Rapide prudent": {
         "delay": 6.0,
@@ -38,7 +43,7 @@ NETWORK_PRESETS = {
     "Personnalise": {
         "delay": None,
         "max_concurrency": None,
-        "description": "Vous pilotez manuellement le delai et la concurrence.",
+        "description": "Vous pilotez manuellement le delai. La collecte reste sequentielle.",
     },
 }
 

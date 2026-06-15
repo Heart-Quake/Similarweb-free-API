@@ -31,13 +31,13 @@ Note that subdomain requests returns the main domain statistics. We don't know w
 
 ### Optimizations for Batch Processing
 
-This implementation includes several optimizations to handle large lists of domains:
+This implementation now prioritizes reliable collection over speed:
 
-- **🔄 User-Agent Rotation**: Automatically rotates between different User-Agents to avoid detection
-- **💾 Caching System**: Results are cached for 24 hours to avoid redundant API calls
-- **⏱️ Intelligent Delays**: Configurable delays between requests with random variations
-- **🔄 Automatic Retry**: Exponential backoff retry mechanism for 403/429 errors
-- **📊 Batch Processing**: Process multiple domains efficiently with progress tracking
+- **Patient sequential batch**: one domain at a time, no async concurrency in the Streamlit batch path
+- **Cache/resume first**: results are cached for 24 hours and reused before any live call
+- **Configurable long delays**: the default live preset waits 60 seconds between domains
+- **Plain 403 retry**: non-provider 403 responses can retry without aborting the whole batch
+- **Optional guarded mode**: `preflight_check=True` and `abort_on_provider_block=True` remain available for defensive scripts
 
 ### Streamlit Interface
 
@@ -69,9 +69,11 @@ result = similar.similarGet('github.com')
 domains = ['github.com', 'stackoverflow.com', 'google.com']
 results = similar.similarGetBatch(
     domains,
-    delay_between_requests=2.0,  # seconds
+    delay_between_requests=60.0,  # seconds, patient mode
     use_cache=True,
-    progress_callback=lambda current, total, domain, result: print(f"{current}/{total}: {domain}")
+    progress_callback=lambda current, total, domain, result: print(f"{current}/{total}: {domain}"),
+    preflight_check=False,
+    abort_on_provider_block=False,
 )
 ```
 
@@ -93,10 +95,11 @@ The cache is stored in `similarweb_cache.json` and is valid for 24 hours by defa
 
 The API has undocumented rate limits. The implementation includes:
 
-- Default delay of 2 seconds between requests (configurable)
+- Default Streamlit preset of 60 seconds between live requests
 - Random delay variations to avoid patterns
 - Exponential backoff on 403/429 errors
-- User-Agent rotation
+- Stable HTTP session and User-Agent per process
+- Batch-level cache fallback and resume
 
 **⚠️ Important**: Be respectful with the API. Don't make too many requests too quickly.
 
@@ -125,15 +128,17 @@ Fetches Similarweb data for a single domain.
 
 **Returns:** Dictionary with data or False on error
 
-### `similarGetBatch(domains, delay_between_requests=2.0, use_cache=True, progress_callback=None)`
+### `similarGetBatch(domains, delay_between_requests=2.0, use_cache=True, progress_callback=None, preflight_check=False, abort_on_provider_block=False)`
 
-Processes multiple domains.
+Processes multiple domains. Default behavior is patient and sequential: the batch tries each uncached domain directly, saves cache progressively, and does not abort the full lot on the first rate-limited domain.
 
 **Parameters:**
 - `domains`: List of domains or URLs
 - `delay_between_requests`: Delay between requests in seconds (default: 2.0)
 - `use_cache`: Use cached results (default: True)
 - `progress_callback`: Function called with (current, total, domain, result)
+- `preflight_check`: Run a Similarweb healthcheck before live domains (default: False)
+- `abort_on_provider_block`: Abort remaining domains after provider block detection (default: False)
 
 **Returns:** Dictionary mapping domains to their results
 

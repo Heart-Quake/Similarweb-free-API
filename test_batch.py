@@ -57,11 +57,10 @@ class FakeSession:
 
 
 def test_batch_processing(monkeypatch, tmp_path):
-    """Le batch passe par une sonde puis traite les domaines sans appel live reel."""
+    """Le batch traite les domaines un par un sans appel live reel."""
     cache = SQLiteCache(db_path=str(tmp_path / "cache.db"), duration_hours=24)
     session = FakeSession(
         [
-            FakeResponse(200),
             FakeResponse(200, SAMPLE_PAYLOAD),
             FakeResponse(200, SAMPLE_PAYLOAD),
             FakeResponse(200, SAMPLE_PAYLOAD),
@@ -86,6 +85,6 @@ def test_batch_processing(monkeypatch, tmp_path):
 
     assert set(results) == {"github.com", "stackoverflow.com", "google.com"}
     assert all(payload[RESULT_SOURCE_KEY] == SOURCE_API_LIVE for payload in results.values())
-    assert len(session.calls) == 4
+    assert len(session.calls) == 3
     assert "domain=github.com" in session.calls[0]["endpoint"]
     assert progress_events[-1] == (3, 3, "google.com")

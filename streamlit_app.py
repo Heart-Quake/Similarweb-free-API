@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import subprocess
@@ -13,9 +12,7 @@ import streamlit as st
 
 from automation_seo_theme import apply_automation_seo_theme
 import similar
-from cache import SQLiteCache
 from config import APP_VERSION, DEFAULT_RETRY_COUNT, NETWORK_PRESETS
-from core_async import AsyncSimilarClient
 from rate_state import get_controller
 from ui_builders import (
     build_batch_context_summary,
@@ -115,8 +112,6 @@ def render_runtime_status() -> None:
         st.success("Aucun cooldown actif.")
 
 
-db_cache = SQLiteCache()
-
 with st.sidebar:
     st.markdown("---")
     st.header("Runtime")
@@ -181,10 +176,10 @@ def estimate_runtime_label(domain_count: int, delay_value: float) -> str:
     return f"~{estimated_minutes:.1f} minute(s)"
 
 
-def resolve_network_settings(preset_name: str, manual_delay: float, manual_max_concurrency: int) -> tuple[float, int]:
-    preset = NETWORK_PRESETS.get(preset_name, NETWORK_PRESETS["Collecte longue sécurisée"])
+def resolve_network_settings(preset_name: str, manual_delay: float, _manual_max_concurrency: int) -> tuple[float, int]:
+    preset = NETWORK_PRESETS.get(preset_name, NETWORK_PRESETS["Collecte patiente fiable"])
     if preset_name == "Personnalise":
-        return float(manual_delay), int(manual_max_concurrency)
+        return float(manual_delay), 1
     return float(preset["delay"]), int(preset["max_concurrency"])
 
 
@@ -195,14 +190,6 @@ def run_single_lookup(domain_input: str) -> dict | None:
     return result
 
 
-def build_delay_range(delay_value: float) -> tuple[float, float]:
-    # Garde un leger jitter pour lisser les pointes sans casser l'intention du delai cible.
-    target_delay = max(0.15, float(delay_value or 0.5))
-    lower_bound = max(0.15, target_delay - 0.35)
-    upper_bound = max(lower_bound, target_delay + 0.35)
-    return lower_bound, upper_bound
-
-
 def run_batch_lookup(
     domains: list[str],
     delay_value: float,
@@ -210,7 +197,6 @@ def run_batch_lookup(
     retry_count: int,
     chunk_size: int,
     proxy_list: list[str],
-    max_concurrency: int,
 ) -> tuple[dict, float]:
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -237,23 +223,20 @@ def run_batch_lookup(
         else:
             status_text.info(f"[{current}/{total}] {domain}")
 
-    async def run_async_batch() -> dict:
-        client = AsyncSimilarClient(
-            cache=db_cache if use_cache else None,
-            proxy_list=proxy_list,
-            max_concurrency=max_concurrency,
-            delay_range=build_delay_range(delay_value),
-        )
-        return await client.fetch_batch(
-            domains,
-            progress_callback=update_progress,
-            chunk_size=chunk_size,
-            use_cache=use_cache,
-            retry_count=retry_count,
-        )
+    if proxy_list:
+        st.warning("Le mode patient n'utilise pas les proxys: il conserve une session HTTP stable pour limiter les incoherences CDN.")
 
     started_at = time.time()
-    results = asyncio.run(run_async_batch())
+    results = similar.similarGetBatch(
+        domains,
+        delay_between_requests=delay_value,
+        use_cache=use_cache,
+        progress_callback=update_progress,
+        chunk_size=chunk_size,
+        retry_count=retry_count,
+        preflight_check=False,
+        abort_on_provider_block=False,
+    )
     elapsed_time = time.time() - started_at
     progress_bar.progress(1.0)
     status_text.success(f"Termine en {elapsed_time:.2f}s")
@@ -578,7 +561,7 @@ batch_tab, single_tab, history_tab = st.tabs(["Traitement par lots", "Recherche 
 
 with batch_tab:
     st.header("Traitement par lots")
-    st.caption("Le batch devient le point d'entree principal. Le moteur utilise un pipeline asynchrone avec concurrence controlee, tout en gardant une posture prudente face aux limites de l'API.")
+    st.caption("Le batch devient le point d'entree principal. Le moteur collecte un domaine a la fois avec cache de reprise, pour privilegier la fiabilite a la vitesse.")
 
     with st.form("batch_lookup_form"):
         st.subheader("1. Coller vos domaines")
@@ -594,14 +577,14 @@ with batch_tab:
             st.caption("Le fichier n'est lu que si aucune liste manuelle n'est collee.")
 
         with st.expander("Configuration avancee", expanded=False):
-            st.caption("Valeurs par defaut orientees stabilite. Reduire le delai augmente le risque de 403 si vous ne passez pas par des proxys.")
+            st.caption("Valeurs par defaut orientees stabilite. Reduire le delai augmente le risque de 403.")
             config_col_1, config_col_2 = st.columns(2)
             with config_col_1:
                 network_preset = st.selectbox(
                     "Preset reseau",
                     list(NETWORK_PRESETS.keys()),
                     index=0,
-                    help="Les presets appliquent automatiquement un couple delai / concurrence.",
+                    help="Les presets appliquent automatiquement le delai entre deux domaines.",
                 )
                 st.caption(NETWORK_PRESETS[network_preset]["description"])
                 use_cache = st.checkbox("Utiliser le cache", value=True)
@@ -611,11 +594,11 @@ with batch_tab:
                 max_domains = st.number_input("Nombre maximum de domaines", min_value=1, max_value=10000, value=500, step=10)
                 if network_preset == "Personnalise":
                     delay = st.slider("Delai cible entre requetes (secondes)", 1.0, 300.0, 60.0, 5.0)
-                    max_concurrency = st.number_input("Concurrence max", min_value=1, max_value=5, value=1, step=1)
+                    max_concurrency = 1
                 else:
                     resolved_delay, resolved_concurrency = resolve_network_settings(network_preset, 60.0, 1)
                     st.metric("Delai applique", f"{resolved_delay:.1f}s")
-                    st.metric("Concurrence appliquee", resolved_concurrency)
+                    st.metric("Mode applique", "Sequentiel")
                     delay = resolved_delay
                     max_concurrency = resolved_concurrency
 
@@ -655,7 +638,7 @@ with batch_tab:
         elif not domains_list:
             st.warning("Saisissez ou importez au moins un domaine pour lancer le traitement.")
         else:
-            effective_delay, effective_concurrency = resolve_network_settings(network_preset, delay, int(max_concurrency))
+            effective_delay, _effective_concurrency = resolve_network_settings(network_preset, delay, int(max_concurrency))
             st.info(
                 f"Temps estime: {estimate_runtime_label(len(domains_list), effective_delay)} pour {len(domains_list)} domaine(s). "
                 f"Preset applique: {network_preset}."
@@ -673,7 +656,6 @@ with batch_tab:
                     int(retry_count),
                     int(chunk_size),
                     proxy_list,
-                    effective_concurrency,
                 )
                 st.session_state["batch_results"] = results
                 st.session_state["batch_use_cache"] = use_cache

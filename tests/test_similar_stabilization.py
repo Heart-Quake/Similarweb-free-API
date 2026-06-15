@@ -239,6 +239,7 @@ def test_batch_healthcheck_200_then_live_domain_allowed(monkeypatch, isolated_si
         use_cache=False,
         retry_count=1,
         rate_controller=controller,
+        preflight_check=True,
     )
 
     assert results["example.com"][RESULT_SOURCE_KEY] == SOURCE_API_LIVE
@@ -258,6 +259,7 @@ def test_batch_healthcheck_cloudfront_blocks_before_live_domains(monkeypatch, is
         use_cache=False,
         retry_count=3,
         rate_controller=controller,
+        preflight_check=True,
     )
 
     assert len(results) == 10
@@ -277,6 +279,7 @@ def test_batch_resume_skips_fresh_cache_and_keeps_uncached_blocked(monkeypatch, 
         use_cache=True,
         retry_count=1,
         rate_controller=controller,
+        preflight_check=True,
     )
 
     assert results["cached.com"][RESULT_SOURCE_KEY] == SOURCE_CACHE_FRESH
@@ -295,11 +298,54 @@ def test_batch_aborts_after_global_block_without_retrying_all_domains(monkeypatc
         use_cache=False,
         retry_count=3,
         rate_controller=controller,
+        preflight_check=True,
+        abort_on_provider_block=True,
     )
 
     assert len(results) == 10
     assert len(session.calls) == 1
     assert all(payload["status_code"] == 403 for payload in results.values())
+
+
+def test_patient_batch_skips_preflight_and_collects_domains(monkeypatch, isolated_similar):
+    session = install_fake_session(monkeypatch, [FakeResponse(200, payload=SAMPLE_PAYLOAD), FakeResponse(200, payload=SAMPLE_PAYLOAD)])
+    controller = FakeRateController()
+
+    results = similar.similarGetBatch(
+        ["example.com", "another-example.com"],
+        delay_between_requests=0.1,
+        use_cache=False,
+        retry_count=1,
+        rate_controller=controller,
+    )
+
+    assert results["example.com"][RESULT_SOURCE_KEY] == SOURCE_API_LIVE
+    assert results["another-example.com"][RESULT_SOURCE_KEY] == SOURCE_API_LIVE
+    assert len(session.calls) == 2
+    assert "domain=github.com" not in session.calls[0]["endpoint"]
+    assert "domain=example.com" in session.calls[0]["endpoint"]
+    assert "domain=another-example.com" in session.calls[1]["endpoint"]
+
+
+def test_patient_batch_retries_plain_403_without_aborting_next_domain(monkeypatch, isolated_similar):
+    session = install_fake_session(
+        monkeypatch,
+        [FakeResponse(403), FakeResponse(200, payload=SAMPLE_PAYLOAD), FakeResponse(200, payload=SAMPLE_PAYLOAD)],
+    )
+    controller = FakeRateController()
+
+    results = similar.similarGetBatch(
+        ["example.com", "another-example.com"],
+        delay_between_requests=0.1,
+        use_cache=False,
+        retry_count=2,
+        rate_controller=controller,
+    )
+
+    assert results["example.com"][RESULT_SOURCE_KEY] == SOURCE_API_LIVE
+    assert results["another-example.com"][RESULT_SOURCE_KEY] == SOURCE_API_LIVE
+    assert len(session.calls) == 3
+    assert "domain=github.com" not in session.calls[0]["endpoint"]
 
 
 def test_stale_fallback_is_not_saved_to_history(monkeypatch, tmp_path):
@@ -318,9 +364,9 @@ def test_long_secure_preset_is_default_and_single_attempt():
     default_name = next(iter(NETWORK_PRESETS))
     default_preset = NETWORK_PRESETS[default_name]
 
-    assert default_name == "Collecte longue sécurisée"
+    assert default_name == "Collecte patiente fiable"
     assert default_preset["max_concurrency"] == 1
-    assert default_preset["delay"] >= 30
+    assert default_preset["delay"] >= 60
     assert DEFAULT_RETRY_COUNT == 1
     assert MAX_CONSECUTIVE_RATE_LIMITS == 1
 

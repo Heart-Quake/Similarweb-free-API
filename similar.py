@@ -392,6 +392,8 @@ def similarGetBatch(
     chunk_size=100,
     retry_count=DEFAULT_RETRY_COUNT,
     rate_controller=None,
+    preflight_check=False,
+    abort_on_provider_block=False,
 ):
     results = {}
     total = len(domains)
@@ -409,10 +411,10 @@ def similarGetBatch(
         normalized_domains.append((domain, domain_clean, cached_payload))
 
     health_result = {"ok": True}
-    if requires_live:
+    if requires_live and preflight_check:
         health_result = similarHealthCheck(rate_controller=controller)
 
-    if requires_live and not health_result.get("ok"):
+    if requires_live and preflight_check and not health_result.get("ok"):
         blocked_message = (
             "IP/session bloquee par Similarweb. Aucun domaine live n'a ete lance."
             if health_result.get("blocked")
@@ -453,7 +455,7 @@ def similarGetBatch(
             if was_cached:
                 result = _build_fresh_cache_payload(cached_payload)
             else:
-                if controller.should_abort_batch():
+                if abort_on_provider_block and controller.should_abort_batch():
                     stale_payload = _get_cached_payload(domain_clean, cache_dict=cache_dict, allow_stale=True) if use_cache else None
                     result = (
                         _build_stale_fallback(
@@ -489,7 +491,7 @@ def similarGetBatch(
             else:
                 consecutive_rate_limits = 0
 
-            if consecutive_rate_limits >= MAX_CONSECUTIVE_RATE_LIMITS:
+            if abort_on_provider_block and consecutive_rate_limits >= MAX_CONSECUTIVE_RATE_LIMITS:
                 for remaining_domain in chunk_domains[index:]:
                     remaining_clean = extract_domain(remaining_domain)
                     stale_payload = _get_cached_payload(remaining_clean, cache_dict=cache_dict, allow_stale=True) if use_cache else None
